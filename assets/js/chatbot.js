@@ -38,7 +38,7 @@
                 dataType: 'json',
                 beforeSend: function() {
                     $send.prop('disabled', true);
-                    addMessage('assistant', '<div class="wc-ai-chatbot-typing">Typing...</div>');
+                    addMessage('assistant', '<div class="wc-ai-chatbot-typing">Typing...</div>', true);
                 },
                 success: function(response) {
                     // Remove typing indicator
@@ -57,6 +57,7 @@
                 },
                 complete: function() {
                     $send.prop('disabled', false);
+                    $('.wc-ai-chatbot-message.typing').remove(); // Remove typing indicator
                 }
             });
         };
@@ -64,7 +65,7 @@
         // Basic HTML sanitization (consider using DOMPurify for more robust sanitization)
         const sanitizeMessage = function(message) {
             // Convert to text if it's not the assistant's HTML response
-            return $('<div>').text(message).html();
+            return message;
         };
 
         $send.on('click', sendMessage);
@@ -75,8 +76,8 @@
         });
 
         // Add messages to chat
-        const addMessage = function(role, message) {
-            const $message = $('<div class="wc-ai-chatbot-message"></div>')
+        const addMessage = function(role, message, typing = false) {
+            const $message = $(`<div class="wc-ai-chatbot-message${typing ? ' typing' : ''}"></div>`)
                 .addClass('wc-ai-chatbot-message-' + role);
 
             // Only sanitize user messages, allow HTML for assistant responses
