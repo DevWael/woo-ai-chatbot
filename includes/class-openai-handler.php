@@ -13,7 +13,7 @@ class WC_AI_OpenAI_Handler {
 	public function __construct() {
 		$options          = get_option( 'wc_ai_chat_settings' );
 		$api_key          = $options['api_key'] ?? '';
-		$this->model      = 'llama3.2:3b';
+		$this->model      = 'llama3.1:latest';
 		$this->api_domain = $options['api_domain'];
 
 		// Initialize LLPhant's OpenAIChat with configuration
@@ -30,26 +30,49 @@ class WC_AI_OpenAI_Handler {
 		$this->chat           = new OllamaChat( $config );
 
 		// Set system message
-		$systemMessage = "You are a friendly and helpful e-commerce assistant for this WooCommerce store. " .
-		                 "Your primary goal is to help users find products and manage their shopping cart. " .
-		                 "You MUST respond ONLY in HTML format. \n" .
-		                 "--- HTML Formatting Rules ---\n" .
-		                 "When displaying products (e.g., after a search), use this exact structure for each product:\n" .
-		                 "<div class=\"product\">\n" .
-		                 "  <div class=\"product-image\"><img src=\"{image_url}\" alt=\"{product_name}\"></div>\n" .
-		                 "  <h3><a href=\"{product_link}\">{product_name}</a></h3>\n" .
-		                 "  <p class=\"price\">Price: {price}</p>\n" .
-		                 "  <p class=\"description\">{short_description}</p>\n" .
-		                 "</div>\n" .
-		                 "When confirming a cart action (like adding an item), use this exact structure:\n" .
-		                 "<div class=\"cart-action\">\n" .
-		                 "  <p>{confirmation_message}</p>\n" .
-		                 "  <a href=\"/cart/\" class=\"button\">View Cart</a> \n" .
-		                 "  <a href=\"/checkout/\" class=\"button\">Checkout</a>\n" .
-		                 "</div>\n" .
-		                 "--- General Guidelines ---\n" .
-		                 " - If a user asks to find products, use the available search tool.\n" .
-		                 " - If a search yields no results, apologize politely and suggest revising the search query (e.g., check spelling, try different terms). Do not invent products.\n";
+		$systemMessage = "You are an AI-powered e-commerce assistant for this WooCommerce store. Your primary responsibilities are to:
+			1. Help customers discover products using our catalog data
+			2. Assist with cart management
+			3. Provide accurate, helpful information while maintaining brand voice
+			
+			<strong>Response Format:</strong>
+			- All responses MUST be in valid HTML format
+			- For product-related content, generate detailed, structured information based on provided data
+			
+			<strong>HTML Templates:</strong>
+			
+			<b>Product Display Template (use for search results):</b>
+			<div class=\"product\">
+			  <div class=\"product-image\"><img src=\"{image_url}\" alt=\"{product_name}\"></div>
+			  <h3><a href=\"{product_link}\">{product_name}</a></h3>
+			  <p class=\"price\">Price: {price}</p>
+			  <p class=\"description\">{short_description}</p>
+			  <a href=\"{product_link}\" class=\"button\">View Details</a>
+			</div>
+			
+			<b>Cart Action Template:</b>
+			<div class=\"cart-action\">
+			  <p>{confirmation_message}</p>
+			  <div class=\"action-buttons\">
+			    <a href=\"/cart/\" class=\"button\">View Cart</a>
+			    <a href=\"/checkout/\" class=\"button\">Proceed to Checkout</a>
+			  </div>
+			</div>
+			
+			<strong>Operational Guidelines:</strong>
+			1. <b>Product Discovery:</b>
+			   - Always use the search tool for product queries
+			   - For empty results: Politely suggest refining search terms
+			   - Never invent products or specifications
+			
+			2. <b>User Experience:</b>
+			   - Maintain a friendly, professional tone
+			   - Focus responses on available products and services
+			   - Direct users to appropriate self-service options
+			
+			3. <b>Data Integrity:</b>
+			   - Only reference existing products from our catalog
+			   - Clearly indicate when information is unavailable";
 
 		$this->chat->setSystemMessage( $systemMessage );
 
@@ -87,7 +110,7 @@ class WC_AI_OpenAI_Handler {
 			'search_woocommerce_products',
 			$this,
 			"Searches the WooCommerce product catalog. Automatically triggered for any product-related queries including: " .
-			"product searches, category browsing, feature requests, or general shopping inquiries.",
+			"product searches, category browsing, feature requests, or general shopping inquiries. You can try the plural and singular forms of the product name.",
 			[
 				$query,
 				$limit,
@@ -135,6 +158,10 @@ class WC_AI_OpenAI_Handler {
 
 	// Function implementations remain the same as in the original class
 	public function create_post( $post_name, $content = '' ) {
+		if ( empty( $content ) ) {
+			$content = $this->generate_post_content( $post_name );
+		}
+
 		$post_id = wp_insert_post( [
 			'post_title'   => $post_name,
 			'post_content' => $content,
@@ -168,7 +195,6 @@ class WC_AI_OpenAI_Handler {
 	}
 
 	public function search_woocommerce_products( $query, $limit = 5 ) {
-//		$args     = wp_parse_args( $args, [ 'limit' => 5 ] );
 		$products = wc_get_products( [
 			'status' => 'publish',
 			'limit'  => $limit,
@@ -223,5 +249,18 @@ class WC_AI_OpenAI_Handler {
 			'success' => false,
 			'message' => 'Missing product identifier',
 		] );
+	}
+
+	private function generate_post_content( $title ) {
+		// Create a specific prompt for content generation
+		$prompt = "Generate a detailed, long, 2000 words, SEO-friendly blog post content based on the following title: \"{$title}\". " .
+		          "The content should be well-structured with paragraphs, headings, and bullet points where appropriate. " .
+		          "Write in a professional but engaging tone. Format the response in proper HTML with <p> tags for paragraphs " .
+		          "and appropriate heading tags (<h2>, <h3>) for sections.";
+
+		// Generate the content using the chat
+		$response = $this->chat->generateChat( [ Message::user( $prompt ) ] );
+
+		return $response;
 	}
 }

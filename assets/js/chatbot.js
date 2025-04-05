@@ -38,7 +38,7 @@
                 dataType: 'json',
                 beforeSend: function() {
                     $send.prop('disabled', true);
-                    addMessage('assistant', '<div class="wc-ai-chatbot-typing">Typing...</div>', true);
+                    addMessage('assistant', '<div class="wc-ai-chatbot-typing">Thinking...</div>', true);
                 },
                 success: function(response) {
                     // Remove typing indicator
