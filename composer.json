@@ -1,0 +1,23 @@
+{
+    "name": "ahmadwael/woocommerce-ai-chatbot",
+    "type": "plugin",
+    "authors": [
+        {
+            "name": "devwael",
+            "email": "dev.ahmedwael@gmail.com"
+        }
+    ],
+    "require": {
+        "openai-php/client": "^0.10.3",
+        "symfony/http-client": "^6.4",
+        "nyholm/psr7": "^1.8",
+        "php-http/discovery": "^1.20",
+        "php-http/guzzle7-adapter": "^1.1",
+        "theodo-group/llphant": "^0.9.9"
+    },
+    "config": {
+        "allow-plugins": {
+            "php-http/discovery": true
+        }
+    }
+}
