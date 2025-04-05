@@ -8,8 +8,8 @@ class WC_AI_OpenAI_Handler {
 	public function __construct() {
 		$options          = get_option( 'wc_ai_chat_settings' );
 		$this->api_key    = $options['api_key'] ?? '';
-		$this->model      = 'llama3.2:1b';
-		$this->api_domain = $options['api_domain'] ?? 'https://api.openai.com/v1';
+		$this->model      = 'llama3.2:3b';
+		$this->api_domain = $options['api_domain'] ?? 'https://api.op/byeenai.com/v1';
 	}
 
 	public function process_message( $message ) {
@@ -23,22 +23,39 @@ class WC_AI_OpenAI_Handler {
 				             'When showing products, format them as: ' .
 				             '<div class="product">' .
 				             '<h3><a href="{product_link}">{product_name}</a></h3>' .
+				             '<div class="product-image">{image}</div>' .
 				             '<p>Price: {price}</p>' .
 				             '<p>{short_description}</p>' .
+				             '<button class="add-to-cart" data-product-id="{product_id}">Add to Cart</button>' .
 				             '</div>' .
 				             'Always link product names to their pages using <a> tags. ' .
+				             'For cart actions, include buttons with data-product-id attributes. ' .
 				             'Never respond with plain text - always use proper HTML markup.',
 			],
 			[
 				'role'    => 'system',
 				'content' => 'IMPORTANT FUNCTION CALLING RULES: ' .
 				             '1. FIRST search for products using `search_woocommerce_products` when customers ask about products. ' .
-				             '2. Return product information in HTML format with links to product pages. ' .
-				             '3. Example response format for products: ' .
-				             '<div class="product-list">' .
-				             '<div class="product"><h3><a href="{product_link}" target="_blank">Product 1</a></h3><p>$19.99</p><p>Great product for X</p></div>' .
-				             '<div class="product"><h3><a href="{product_link}" target="_blank">Product 2</a></h3><p>$29.99</p><p>Excellent solution for Y</p></div>' .
-				             '</div>',
+				             '2. Use `add_product_to_cart` ONLY when: ' .
+				             '   - Customer explicitly says "add to cart" or "buy this" ' .
+				             '   - Customer clicks an "Add to Cart" button ' .
+				             '   - Customer agrees to your suggestion to add a product ' .
+				             '3. NEVER add items to cart without explicit consent. ' .
+				             '4. When showing products, always include: name, price, description, and Add to Cart button. ' .
+				             '5. After adding to cart, confirm with: ' .
+				             '   "<p>Product added to cart! <a href="/cart/">View Cart</a> or <a href="/checkout/">Proceed to Checkout</a></p>"',
+			],
+			[
+				'role'    => 'system',
+				'content' => 'EXAMPLE INTERACTIONS: ' .
+				             'USER: "Show me blue jeans" ' .
+				             'ASSISTANT: Product results in HTML format with Add to Cart buttons ' .
+				             'USER: "Add the Levi\'s 501 to my cart" ' .
+				             'ASSISTANT: Calls add_product_to_cart function ' .
+				             'USER: "I want to buy this" (referring to a product) ' .
+				             'ASSISTANT: Calls add_product_to_cart function ' .
+				             'USER: "Yes, add it" (after your suggestion) ' .
+				             'ASSISTANT: Calls add_product_to_cart function',
 			],
 			[ 'role' => 'user', 'content' => $message ],
 		];
@@ -86,10 +103,11 @@ class WC_AI_OpenAI_Handler {
 				'Authorization' => 'Bearer ' . $this->api_key,
 			],
 			'body'      => wp_json_encode( [
-				'model'    => $this->model,
-				'messages' => $messages,
-				'stream'   => false,
-				'tools'    => ! empty( $functions ) ? $functions : null,
+				'model'      => $this->model,
+				'messages'   => $messages,
+				'stream'     => false,
+				//				'raw'      => true,
+				'tools'      => ! empty( $functions ) ? $functions : null,
 			] ),
 			'timeout'   => 160,
 			'sslverify' => false,
@@ -190,12 +208,12 @@ class WC_AI_OpenAI_Handler {
 		$result = [];
 		foreach ( $products as $product ) {
 			$result[] = [
-				'id'          => $product->get_id(),
-				'name'        => $product->get_name(),
-				'price'       => wc_price( $product->get_price() ), // Format price properly
-//				'description' => $product->get_short_description(),
-				'link'        => get_permalink( $product->get_id() ),
-				'image'       => wp_get_attachment_image_url( $product->get_image_id(), 'thumbnail' ),
+				'id'    => $product->get_id(),
+				'name'  => $product->get_name(),
+				'price' => wc_price( $product->get_price() ), // Format price properly
+				//				'description' => $product->get_short_description(),
+				'link'  => get_permalink( $product->get_id() ),
+				'image' => wp_get_attachment_image_url( $product->get_image_id(), 'thumbnail' ),
 			];
 		}
 
