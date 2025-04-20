@@ -10,9 +10,13 @@ class Ajax_Chat_Handler {
 
 	public function handle_chat_request() {
 		$openai_handler = new AI_Handler();
-		$response       = $openai_handler->process_message( $_POST['message'] );
+		try {
+			$response = $openai_handler->process_message( $_POST['message'] );
 
-		wp_send_json_success( $response );
+			wp_send_json_success( $response );
+		} catch ( \Exception $e ) {
+			wp_send_json_error( $e->getMessage() );
+		}
 	}
 
 	public function load_hooks() {

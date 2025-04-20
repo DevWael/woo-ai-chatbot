@@ -8,6 +8,8 @@ defined( '\ABSPATH' ) || exit;
 
 class ProductsSearch {
 	public function search_woocommerce_products( $query, $limit = 5 ) {
+		file_put_contents( plugin_dir_path( __FILE__ ) . 'log.txt', "Search query: $query" );
+
 		$products = wc_get_products( [
 			'status' => 'publish',
 			'limit'  => $limit,

@@ -13,31 +13,17 @@ use WoocommerceAIChatbot\AI_Handler;
 defined( '\ABSPATH' ) || exit;
 
 class Chat_Agent extends Agent {
-
-	private $api_domain;
-	private $model;
 	/**
-	 * @var AI_Handler
+	 * @var AIProviderInterface The AI provider instance.
 	 */
-	private $handler;
+	protected AIProviderInterface $provider;
 
-	public function __construct( $api_domain, $model, $handler ) {
-		$this->api_domain = $api_domain;
-		$this->model      = $model;
-		$this->handler    = $handler;
+	public function __construct( AIProviderInterface $provider ) {
+		$this->provider = $provider;
 	}
 
 	protected function provider(): AIProviderInterface {
-		return new Ollama(
-			$this->api_domain,
-			$this->model,
-			[
-//				'top_k'       => 55,
-//				'top_p'       => 0.6,
-//				'temperature' => 0.3,
-//				'num_ctx'     => 30000,
-			]
-		);
+		return $this->provider;
 	}
 
 	public function instructions(): string {
