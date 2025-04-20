@@ -10,54 +10,37 @@ use NeuronAI\Tools\ToolProperty;
 use NeuronAI\StructuredOutput\SchemaProperty;
 use Symfony\Component\Validator\Constraints\NotBlank;
 
-// Define structured output schemas
-if ( ! class_exists( 'ProductDisplay' ) ) {
-	class ProductDisplay {
-		#[SchemaProperty( description: 'The product image URL.', required: true )]
-		#[NotBlank]
-		public string $image_url;
+// Define schema for intent classification
+class UserIntent {
+	#[SchemaProperty( description: 'The user intent: product_search, cart_action, blog_post, unknown' )]
+	#[NotBlank]
+	public string $intent;
+}
 
-		#[SchemaProperty( description: 'The product name.', required: true )]
-		#[NotBlank]
-		public string $product_name;
+// Supervisor Agent
+class WC_Supervisor_Agent extends Agent {
+	protected function provider(): AIProviderInterface {
+		return new Ollama( 'http://localhost:11434/api', 'llama3.1:latest' );
+	}
 
-		#[SchemaProperty( description: 'The product link.', required: true )]
-		#[NotBlank]
-		public string $product_link;
-
-		#[SchemaProperty( description: 'The product price.', required: true )]
-		#[NotBlank]
-		public string $price;
-
-		#[SchemaProperty( description: 'The product short description.', required: true )]
-		#[NotBlank]
-		public string $short_description;
+	public function instructions(): string {
+		return new SystemPrompt(
+			background: [
+				'You are a supervisor AI agent responsible for classifying user intents in a WooCommerce store.',
+			],
+			steps: [
+				'Determine whether the intent is product_search, cart_action, blog_post, or unknown.',
+			]
+		);
 	}
 }
 
-if ( ! class_exists( 'CartAction' ) ) {
-	class CartAction {
-		#[SchemaProperty( description: 'The confirmation message.', required: true )]
-		#[NotBlank]
-		public string $confirmation_message;
+abstract class WC_AI_Chat_Agent extends Agent {
+	protected string $api_domain;
+	protected string $model;
+	protected mixed $handler;
 
-		#[SchemaProperty( description: 'The cart URL.', required: true )]
-		#[NotBlank]
-		public string $cart_url;
-
-		#[SchemaProperty( description: 'The checkout URL.', required: true )]
-		#[NotBlank]
-		public string $checkout_url;
-	}
-}
-
-// Define the Neuron AI Agent class
-class WC_AI_Chat_Agent extends Agent {
-	private $api_domain;
-	private $model;
-	private $handler;
-
-	public function __construct( $api_domain, $model, $handler ) {
+	public function __construct( string $api_domain, string $model, mixed $handler = null ) {
 		$this->api_domain = $api_domain;
 		$this->model      = $model;
 		$this->handler    = $handler;
@@ -68,119 +51,124 @@ class WC_AI_Chat_Agent extends Agent {
 			$this->api_domain,
 			$this->model,
 			[
-				'top_k'       => 55,
-				'top_p'       => 0.6,
-//				'temperature' => 0.3,
-				'num_ctx'     => 30000,
+				'top_k'   => 55,
+				'top_p'   => 0.6,
+				'num_ctx' => 30000,
 			]
 		);
 	}
+}
 
+
+// Product Agent
+class WC_Product_Agent extends WC_AI_Chat_Agent {
 	public function instructions(): string {
 		return new SystemPrompt(
 			background: [
-				"You are an AI-powered e-commerce assistant for this WooCommerce store.",
-				"Your primary responsibilities are to help customers discover products, assist with cart management, and provide accurate information while maintaining brand voice.",
+				'You assist users in finding products on this WooCommerce store.',
 			],
 			steps: [
-				"For product queries, use the search_woocommerce_products tool.",
-				"For cart actions, use the appropriate cart tools only when explicitly requested.",
-				"Generate responses in valid HTML format using the provided templates.",
-				"Maintain a friendly, professional tone and focus on available products.",
+				'Use the search_woocommerce_products tool to retrieve products.',
 			],
 			output: [
-				"All responses MUST be in valid HTML format.",
-				"Use the ProductDisplay schema for product search results.",
-				"Use the CartAction schema for cart-related actions.",
-				//"For general responses, wrap text in <p> tags.",
+				'Use the ProductDisplay schema.',
 			]
 		);
 	}
 
 	protected function tools(): array {
 		return [
-			// Create Post Tool
-			Tool::make(
-				'create_post',
-				'Create a new post in the store. Use only when explicitly requested.',
-			)->addProperty(
-				new ToolProperty( 'post_name', 'string', 'The name of the post to be created.', true )
-			)->addProperty(
-				new ToolProperty( 'content', 'string', 'The content of the post.', false )
-			)->setCallable(
-				array( $this->handler, 'create_post' )
-			),
-
-			// Search Products Tool
-			Tool::make(
-				'search_woocommerce_products',
-				'Searches the WooCommerce product catalog. Use for product-related queries.',
-			)->addProperty(
-				new ToolProperty( 'query', 'string', 'The user’s search terms.', true )
-			)->addProperty(
-				new ToolProperty( 'limit', 'integer', 'Maximum number of products to return.', false )
-			)->setCallable(
-				array( $this->handler, 'search_woocommerce_products' )
-			),
-
-			// Add to Cart Tool
-			Tool::make(
-				'add_to_cart',
-				'Adds a product to the cart. Use only when explicitly requested.',
-			)->addProperty(
-				new ToolProperty( 'product_id', 'integer', 'The product ID.', false )
-			)->addProperty(
-				new ToolProperty( 'product_name', 'string', 'The exact product name.', false )
-			)->addProperty(
-				new ToolProperty( 'quantity', 'integer', 'The quantity to add.', false )
-			)->setCallable(
-				array( $this->handler, 'add_to_cart' )
-			),
-
-			// Cart Count Tool
-			Tool::make(
-				'cart_products_count',
-				'Retrieves the total number of items in the cart.',
-			)->setCallable(
-				array( $this->handler, 'cart_products_count' )
-			),
-
-			// Empty Cart Tool
-			Tool::make(
-				'empty_cart',
-				'Clears all items from the cart. Use only when explicitly requested.',
-			)->setCallable(
-				array( $this->handler, 'empty_cart' )
-			),
+			Tool::make( 'search_woocommerce_products', 'Search the WooCommerce catalog.' )
+			    ->addProperty( new ToolProperty( 'query', 'string', 'Search terms', true ) )
+			    ->addProperty( new ToolProperty( 'limit', 'integer', 'Limit', false ) )
+			    ->setCallable( [ $this->handler, 'search_woocommerce_products' ] ),
 		];
 	}
 }
 
+// Cart Agent
+class WC_Cart_Agent extends WC_AI_Chat_Agent {
+	public function instructions(): string {
+		return new SystemPrompt(
+			background: [ 'You help users manage their WooCommerce cart.' ],
+			steps: [
+				'Use tools like add_to_cart, empty_cart, cart_products_count.',
+			],
+			output: [ 'Use the CartAction schema.' ]
+		);
+	}
+
+	protected function tools(): array {
+		return [
+			Tool::make( 'add_to_cart', 'Adds product to cart.' )
+			    ->addProperty( new ToolProperty( 'product_id', 'integer', 'Product ID', false ) )
+			    ->addProperty( new ToolProperty( 'product_name', 'string', 'Product name', false ) )
+			    ->addProperty( new ToolProperty( 'quantity', 'integer', 'Quantity', false ) )
+			    ->setCallable( [ $this->handler, 'add_to_cart' ] ),
+
+			Tool::make( 'empty_cart', 'Clears the cart.' )
+			    ->setCallable( [ $this->handler, 'empty_cart' ] ),
+
+			Tool::make( 'cart_products_count', 'Gets cart item count.' )
+			    ->setCallable( [ $this->handler, 'cart_products_count' ] ),
+		];
+	}
+}
+
+// Blog Agent
+class WC_Blog_Agent extends WC_AI_Chat_Agent {
+	public function instructions(): string {
+		return new SystemPrompt(
+			background: [ 'You help users generate blog posts.' ],
+			steps: [
+				'Use the create_post tool for content generation.',
+			]
+		);
+	}
+
+	protected function tools(): array {
+		return [
+			Tool::make( 'create_post', 'Creates a blog post.' )
+			    ->addProperty( new ToolProperty( 'post_name', 'string', 'Post title', true ) )
+			    ->addProperty( new ToolProperty( 'content', 'string', 'Optional content', false ) )
+			    ->setCallable( [ $this->handler, 'create_post' ] ),
+		];
+	}
+}
+
+// Main orchestrator
 class WC_AI_OpenAI_Handler {
-	private $agent;
-	private $model;
-	private $api_domain;
+	private $agents;
+	private $supervisor;
 
 	public function __construct() {
-		$options          = get_option( 'wc_ai_chat_settings' );
-		$api_key          = $options['api_key'] ?? '';
-		$this->model      = 'llama3.1:latest';
-		$this->api_domain = $options['api_domain'] ?? 'http://localhost:11434';
+		$options    = get_option( 'wc_ai_chat_settings' );
+		$api_domain = $options['api_domain'] ?? 'http://localhost:11434/api';
+		$model      = 'llama3.1:latest';
 
-		// Initialize Neuron AI Agent
-		$this->agent = new WC_AI_Chat_Agent( $this->api_domain, $this->model, $this );
+		$this->supervisor = new WC_Supervisor_Agent();
+
+		$this->agents = [
+			'product_search' => new WC_Product_Agent( $api_domain, $model, $this ),
+			'cart_action'    => new WC_Cart_Agent( $api_domain, $model, $this ),
+			'blog_post'      => new WC_Blog_Agent( $api_domain, $model, $this ),
+		];
 	}
 
 	public function process_message( $message ) {
-		$response = $this->agent->chat( new UserMessage( $message ) );
-		$content  = $response->getContent();
+		$intentResult = $this->supervisor->structured( new UserMessage( $message ), UserIntent::class );
+		$intent       = $intentResult->intent;
 
-		// Ensure response is in HTML format
-		if ( ! preg_match( '/^<.*>$/s', $content ) ) {
-			$content = "<p>$content</p>";
+		if ( isset( $this->agents[ $intent ] ) ) {
+			$agent    = $this->agents[ $intent ];
+			$response = $agent->chat( new UserMessage( $message ) );
+		} else {
+			$response = $this->supervisor->chat( new UserMessage( $message ) );
 		}
 
-		return $content;
+		$content = $response->getContent();
+
+		return preg_match( '/^<.*>$/s', $content ) ? $content : "<p>$content</p>";
 	}
 
 	public function create_post( $post_name, $content = '' ) {
