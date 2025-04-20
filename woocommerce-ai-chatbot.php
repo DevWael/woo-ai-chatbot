@@ -19,11 +19,12 @@ define('WC_AI_CHATBOT_VERSION', '1.0');
 define('WC_AI_CHATBOT_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('WC_AI_CHATBOT_PLUGIN_URL', plugin_dir_url(__FILE__));
 
+require_once WC_AI_CHATBOT_PLUGIN_DIR . 'vendor/autoload.php'; // Ensure you have the OpenAI PHP client installed via Composer
+
 // Include necessary files
 require_once WC_AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chat-admin.php';
 require_once WC_AI_CHATBOT_PLUGIN_DIR . 'includes/class-ai-chat-frontend.php';
 require_once WC_AI_CHATBOT_PLUGIN_DIR . 'includes/class-openai-handler.php';
-require_once WC_AI_CHATBOT_PLUGIN_DIR . 'vendor/autoload.php'; // Ensure you have the OpenAI PHP client installed via Composer
 
 class WooCommerce_AI_Chatbot {
 

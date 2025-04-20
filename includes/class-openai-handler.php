@@ -1,12 +1,163 @@
 <?php
 
-use LLPhant\Chat\FunctionInfo\FunctionInfo;
-use LLPhant\Chat\OllamaChat;
-use LLPhant\Chat\FunctionInfo\Parameter;
-use LLPhant\Chat\Message;
+use NeuronAI\Agent;
+use NeuronAI\SystemPrompt;
+use NeuronAI\Chat\Messages\UserMessage;
+use NeuronAI\Providers\AIProviderInterface;
+use NeuronAI\Providers\Ollama\Ollama;
+use NeuronAI\Tools\Tool;
+use NeuronAI\Tools\ToolProperty;
+use NeuronAI\StructuredOutput\SchemaProperty;
+use Symfony\Component\Validator\Constraints\NotBlank;
+
+// Define structured output schemas
+if ( ! class_exists( 'ProductDisplay' ) ) {
+	class ProductDisplay {
+		#[SchemaProperty( description: 'The product image URL.', required: true )]
+		#[NotBlank]
+		public string $image_url;
+
+		#[SchemaProperty( description: 'The product name.', required: true )]
+		#[NotBlank]
+		public string $product_name;
+
+		#[SchemaProperty( description: 'The product link.', required: true )]
+		#[NotBlank]
+		public string $product_link;
+
+		#[SchemaProperty( description: 'The product price.', required: true )]
+		#[NotBlank]
+		public string $price;
+
+		#[SchemaProperty( description: 'The product short description.', required: true )]
+		#[NotBlank]
+		public string $short_description;
+	}
+}
+
+if ( ! class_exists( 'CartAction' ) ) {
+	class CartAction {
+		#[SchemaProperty( description: 'The confirmation message.', required: true )]
+		#[NotBlank]
+		public string $confirmation_message;
+
+		#[SchemaProperty( description: 'The cart URL.', required: true )]
+		#[NotBlank]
+		public string $cart_url;
+
+		#[SchemaProperty( description: 'The checkout URL.', required: true )]
+		#[NotBlank]
+		public string $checkout_url;
+	}
+}
+
+// Define the Neuron AI Agent class
+class WC_AI_Chat_Agent extends Agent {
+	private $api_domain;
+	private $model;
+	private $handler;
+
+	public function __construct( $api_domain, $model, $handler ) {
+		$this->api_domain = $api_domain;
+		$this->model      = $model;
+		$this->handler    = $handler;
+	}
+
+	protected function provider(): AIProviderInterface {
+		return new Ollama(
+			$this->api_domain,
+			$this->model,
+			[
+				'top_k'       => 55,
+				'top_p'       => 0.6,
+//				'temperature' => 0.3,
+				'num_ctx'     => 30000,
+			]
+		);
+	}
+
+	public function instructions(): string {
+		return new SystemPrompt(
+			background: [
+				"You are an AI-powered e-commerce assistant for this WooCommerce store.",
+				"Your primary responsibilities are to help customers discover products, assist with cart management, and provide accurate information while maintaining brand voice.",
+			],
+			steps: [
+				"For product queries, use the search_woocommerce_products tool.",
+				"For cart actions, use the appropriate cart tools only when explicitly requested.",
+				"Generate responses in valid HTML format using the provided templates.",
+				"Maintain a friendly, professional tone and focus on available products.",
+			],
+			output: [
+				"All responses MUST be in valid HTML format.",
+				"Use the ProductDisplay schema for product search results.",
+				"Use the CartAction schema for cart-related actions.",
+				//"For general responses, wrap text in <p> tags.",
+			]
+		);
+	}
+
+	protected function tools(): array {
+		return [
+			// Create Post Tool
+			Tool::make(
+				'create_post',
+				'Create a new post in the store. Use only when explicitly requested.',
+			)->addProperty(
+				new ToolProperty( 'post_name', 'string', 'The name of the post to be created.', true )
+			)->addProperty(
+				new ToolProperty( 'content', 'string', 'The content of the post.', false )
+			)->setCallable(
+				array( $this->handler, 'create_post' )
+			),
+
+			// Search Products Tool
+			Tool::make(
+				'search_woocommerce_products',
+				'Searches the WooCommerce product catalog. Use for product-related queries.',
+			)->addProperty(
+				new ToolProperty( 'query', 'string', 'The user’s search terms.', true )
+			)->addProperty(
+				new ToolProperty( 'limit', 'integer', 'Maximum number of products to return.', false )
+			)->setCallable(
+				array( $this->handler, 'search_woocommerce_products' )
+			),
+
+			// Add to Cart Tool
+			Tool::make(
+				'add_to_cart',
+				'Adds a product to the cart. Use only when explicitly requested.',
+			)->addProperty(
+				new ToolProperty( 'product_id', 'integer', 'The product ID.', false )
+			)->addProperty(
+				new ToolProperty( 'product_name', 'string', 'The exact product name.', false )
+			)->addProperty(
+				new ToolProperty( 'quantity', 'integer', 'The quantity to add.', false )
+			)->setCallable(
+				array( $this->handler, 'add_to_cart' )
+			),
+
+			// Cart Count Tool
+			Tool::make(
+				'cart_products_count',
+				'Retrieves the total number of items in the cart.',
+			)->setCallable(
+				array( $this->handler, 'cart_products_count' )
+			),
+
+			// Empty Cart Tool
+			Tool::make(
+				'empty_cart',
+				'Clears all items from the cart. Use only when explicitly requested.',
+			)->setCallable(
+				array( $this->handler, 'empty_cart' )
+			),
+		];
+	}
+}
 
 class WC_AI_OpenAI_Handler {
-	private $chat;
+	private $agent;
 	private $model;
 	private $api_domain;
 
@@ -14,149 +165,24 @@ class WC_AI_OpenAI_Handler {
 		$options          = get_option( 'wc_ai_chat_settings' );
 		$api_key          = $options['api_key'] ?? '';
 		$this->model      = 'llama3.1:latest';
-		$this->api_domain = $options['api_domain'];
+		$this->api_domain = $options['api_domain'] ?? 'http://localhost:11434';
 
-		// Initialize LLPhant's OpenAIChat with configuration
-		$config = new \LLPhant\OllamaConfig();
-//		$config->apiKey = $api_key;
-		$config->url          = $this->api_domain;
-		$config->model        = $this->model;
-		$config->modelOptions = array(
-			'top_k'       => 55,
-			'top_p'       => 0.6,
-			'temperature' => 0.3,
-			'num_ctx'     => 30000,
-		);
-		$this->chat           = new OllamaChat( $config );
-
-		// Set system message
-		$systemMessage = "You are an AI-powered e-commerce assistant for this WooCommerce store. Your primary responsibilities are to:
-			1. Help customers discover products using our catalog data
-			2. Assist with cart management
-			3. Provide accurate, helpful information while maintaining brand voice
-			
-			<strong>Response Format:</strong>
-			- All responses MUST be in valid HTML format
-			- For product-related content, generate detailed, structured information based on provided data
-			
-			<strong>HTML Templates:</strong>
-			
-			<b>Product Display Template (use for search results):</b>
-			<div class=\"product\">
-			  <div class=\"product-image\"><img src=\"{image_url}\" alt=\"{product_name}\"></div>
-			  <h3><a href=\"{product_link}\">{product_name}</a></h3>
-			  <p class=\"price\">Price: {price}</p>
-			  <p class=\"description\">{short_description}</p>
-			  <a href=\"{product_link}\" class=\"button\">View Details</a>
-			</div>
-			
-			<b>Cart Action Template:</b>
-			<div class=\"cart-action\">
-			  <p>{confirmation_message}</p>
-			  <div class=\"action-buttons\">
-			    <a href=\"/cart/\" class=\"button\">View Cart</a>
-			    <a href=\"/checkout/\" class=\"button\">Proceed to Checkout</a>
-			  </div>
-			</div>
-			
-			<strong>Operational Guidelines:</strong>
-			1. <b>Product Discovery:</b>
-			   - Always use the search tool for product queries
-			   - For empty results: Politely suggest refining search terms
-			   - Never invent products or specifications
-			
-			2. <b>User Experience:</b>
-			   - Maintain a friendly, professional tone
-			   - Focus responses on available products and services
-			   - Direct users to appropriate self-service options
-			
-			3. <b>Data Integrity:</b>
-			   - Only reference existing products from our catalog
-			   - Clearly indicate when information is unavailable";
-
-		$this->chat->setSystemMessage( $systemMessage );
-
-		// Add functions
-		$this->addFunctions();
+		// Initialize Neuron AI Agent
+		$this->agent = new WC_AI_Chat_Agent( $this->api_domain, $this->model, $this );
 	}
 
 	public function process_message( $message ) {
-		// Create user message
-		$user_message = new Message();
+		$response = $this->agent->chat( new UserMessage( $message ) );
+		$content  = $response->getContent();
 
-		// Generate response
-		return $this->chat->generateChat( [ $user_message::user( $message ) ] );
+		// Ensure response is in HTML format
+		if ( ! preg_match( '/^<.*>$/s', $content ) ) {
+			$content = "<p>$content</p>";
+		}
+
+		return $content;
 	}
 
-	private function addFunctions() {
-		// Create post function
-		$post_name          = new Parameter( 'post_name', 'string', "The name of the post to be created." );
-		$content            = new Parameter( 'content', 'string', "The content of the post.", array() );
-		$createPostFunction = new FunctionInfo(
-			'create_post',
-			$this,
-			"create a new post in the store. Use this function only when the user explicitly asks to create a new post or product.",
-			[
-				$post_name,
-				$content,
-			]
-		);
-		$this->chat->addTool( $createPostFunction );
-
-		$query = new Parameter( 'query', 'string', "The user's search terms" );
-		$limit = new Parameter( 'limit', 'integer', "Maximum number of products to return" );
-		// Search products function
-		$searchProductsFunction = new FunctionInfo(
-			'search_woocommerce_products',
-			$this,
-			"Searches the WooCommerce product catalog. Automatically triggered for any product-related queries including: " .
-			"product searches, category browsing, feature requests, or general shopping inquiries. You can try the plural and singular forms of the product name.",
-			[
-				$query,
-				$limit,
-			],
-			[
-				$query,
-			]
-		);
-		$this->chat->addTool( $searchProductsFunction );
-
-		$product_id   = new Parameter( 'product_id', 'integer', "The product ID", array() );
-		$product_name = new Parameter( 'product_name', 'string', "The exact product name to add", array() );
-		$quantity     = new Parameter( 'quantity', 'integer', "The quantity to add", array(), 1 );
-		// Add to cart function
-		$addToCartFunction = new FunctionInfo(
-			'add_to_cart',
-			$this,
-			"Adds a specific product to the user's shopping cart. Use this *only* after a user explicitly confirms they want to add an item, or directly asks to add a specific item. Requires identifying the product using *either* its unique `product_id` (preferred, usually obtained from a previous `search_woocommerce_products` call) *or* the exact `product_name`. If only `product_name` is provided, the system will first attempt to find the corresponding `product_id`. Returns a confirmation message upon success.",
-			[
-				$product_id,
-				$product_name,
-				$quantity,
-			]
-		);
-		$this->chat->addTool( $addToCartFunction );
-
-		// Cart count function
-		$cartCountFunction = new FunctionInfo(
-			'cart_products_count',
-			$this,
-			"Retrieves the current total number of individual items in the user's shopping cart.",
-			array()
-		);
-		$this->chat->addTool( $cartCountFunction );
-
-		// Empty cart function
-		$emptyCartFunction = new FunctionInfo(
-			'empty_cart',
-			$this,
-			"Completely clears all items from the shopping cart. Only invoke when the customer explicitly requests cart clearance.",
-			array()
-		);
-		$this->chat->addTool( $emptyCartFunction );
-	}
-
-	// Function implementations remain the same as in the original class
 	public function create_post( $post_name, $content = '' ) {
 		if ( empty( $content ) ) {
 			$content = $this->generate_post_content( $post_name );
@@ -185,7 +211,7 @@ class WC_AI_OpenAI_Handler {
 	public function cart_products_count() {
 		$count = WC()->cart->get_cart_contents_count();
 
-		return json_encode( $count ); // Simplified for example
+		return json_encode( $count );
 	}
 
 	public function empty_cart() {
@@ -252,15 +278,13 @@ class WC_AI_OpenAI_Handler {
 	}
 
 	private function generate_post_content( $title ) {
-		// Create a specific prompt for content generation
-		$prompt = "Generate a detailed, long, 2000 words, SEO-friendly blog post content based on the following title: \"{$title}\". " .
+		$prompt = "Generate a detailed, long, 2000-word, SEO-friendly blog post content based on the following title: \"{$title}\". " .
 		          "The content should be well-structured with paragraphs, headings, and bullet points where appropriate. " .
 		          "Write in a professional but engaging tone. Format the response in proper HTML with <p> tags for paragraphs " .
 		          "and appropriate heading tags (<h2>, <h3>) for sections.";
 
-		// Generate the content using the chat
-		$response = $this->chat->generateChat( [ Message::user( $prompt ) ] );
+		$response = $this->agent->chat( new UserMessage( $prompt ) );
 
-		return $response;
+		return $response->getContent();
 	}
 }
