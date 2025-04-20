@@ -15,13 +15,13 @@ class CreatePost {
 		] );
 
 		if ( is_wp_error( $post_id ) ) {
-			return json_encode( [
+			return wp_json_encode( [
 				'success' => false,
 				'message' => 'Failed to create post',
 			] );
 		}
 
-		return json_encode( [
+		return wp_json_encode( [
 			'success' => true,
 			'post_id' => $post_id,
 			'message' => 'Post created successfully',

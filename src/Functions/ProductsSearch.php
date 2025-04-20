@@ -26,6 +26,6 @@ class ProductsSearch {
 			];
 		}
 
-		return json_encode( $result );
+		return wp_json_encode( $result );
 	}
 }

@@ -46,7 +46,7 @@ class CartController {
 	public function cart_products_count() {
 		$count = WC()->cart->get_cart_contents_count();
 
-		return json_encode( $count );
+		return wp_json_encode( $count );
 	}
 
 	public function empty_cart() {
