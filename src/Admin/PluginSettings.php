@@ -1,7 +1,13 @@
 <?php
 
-class WC_AI_Chat_Admin {
-	public function __construct() {
+declare( strict_types=1 );
+
+namespace WoocommerceAIChatbot\Admin;
+
+defined( '\ABSPATH' ) || exit;
+
+class PluginSettings {
+	public function load_hooks() {
 		add_action( 'admin_menu', [ $this, 'add_admin_menu' ] );
 		add_action( 'admin_init', [ $this, 'init_settings' ] );
 	}
@@ -84,7 +90,7 @@ class WC_AI_Chat_Admin {
 	public function render_model_field() {
 		$options = get_option( 'wc_ai_chat_settings' );
 		$models  = [
-			'google/gemini-2.0-flash-exp:free'    => 'Gemini 2.0 Flash Exp',
+			'google/gemini-2.0-flash-exp:free' => 'Gemini 2.0 Flash Exp',
 		];
 
 		echo '<select name="wc_ai_chat_settings[model]">';
