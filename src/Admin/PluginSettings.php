@@ -1,7 +1,13 @@
 <?php
 
-class WC_AI_Chat_Admin {
-	public function __construct() {
+declare( strict_types=1 );
+
+namespace WoocommerceAIChatbot\Admin;
+
+defined( '\ABSPATH' ) || exit;
+
+class PluginSettings {
+	public function load_hooks() {
 		add_action( 'admin_menu', [ $this, 'add_admin_menu' ] );
 		add_action( 'admin_init', [ $this, 'init_settings' ] );
 	}
@@ -27,6 +33,14 @@ class WC_AI_Chat_Admin {
 		);
 
 		add_settings_field(
+			'provider',
+			'AI Provider',
+			[ $this, 'render_provider_field' ],
+			'wc-ai-chatbot',
+			'wc_ai_chat_main'
+		);
+
+		add_settings_field(
 			'api_domain',
 			'AI Service Domain (Optional)',
 			[ $this, 'render_api_domain_field' ],
@@ -36,7 +50,7 @@ class WC_AI_Chat_Admin {
 
 		add_settings_field(
 			'api_key',
-			'OpenAI API Key',
+			'API Key',
 			[ $this, 'render_api_key_field' ],
 			'wc-ai-chatbot',
 			'wc_ai_chat_main'
@@ -69,6 +83,25 @@ class WC_AI_Chat_Admin {
 		}
 	}
 
+	public function render_provider_field() {
+		$options   = get_option( 'wc_ai_chat_settings' );
+		$providers = [
+			'ollama'      => 'Ollama',
+			'anthropic'   => 'Anthropic',
+			'openai'      => 'OpenAI',
+			'mistral'     => 'Mistral',
+			'deepseek'    => 'Deepseek',
+			'together_ai' => 'TogetherAI',
+			'open_router' => 'OpenRouter',
+		];
+
+		echo '<select name="wc_ai_chat_settings[provider]">';
+		foreach ( $providers as $key => $label ) {
+			echo '<option value="' . esc_attr( $key ) . '" ' . selected( $options['provider'] ?? '', $key, false ) . '>' . esc_html( $label ) . '</option>';
+		}
+		echo '</select>';
+	}
+
 	public function render_api_domain_field() {
 		$options = get_option( 'wc_ai_chat_settings' );
 		echo '<input type="url" name="wc_ai_chat_settings[api_domain]" value="' . esc_attr( $options['api_domain'] ?? '' )
@@ -83,15 +116,7 @@ class WC_AI_Chat_Admin {
 
 	public function render_model_field() {
 		$options = get_option( 'wc_ai_chat_settings' );
-		$models  = [
-			'google/gemini-2.0-flash-exp:free'    => 'Gemini 2.0 Flash Exp',
-		];
-
-		echo '<select name="wc_ai_chat_settings[model]">';
-		foreach ( $models as $key => $label ) {
-			echo '<option value="' . esc_attr( $key ) . '" ' . selected( $options['model'] ?? '', $key, false ) . '>' . esc_html( $label ) . '</option>';
-		}
-		echo '</select>';
+		echo '<input type="text" name="wc_ai_chat_settings[model]" value="' . esc_attr( $options['model'] ?? 'google/gemini-2.0-flash-exp:free' ) . '" class="regular-text">';
 	}
 
 	public function render_chat_title_field() {
