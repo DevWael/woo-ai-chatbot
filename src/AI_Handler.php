@@ -33,7 +33,7 @@ class AI_Handler {
 				'api_key'    => '',
 				'api_domain' => 'http://localhost:11434/api/',
 				'provider'   => 'ollama',
-				'model'      => 'llama3.1:latest',
+				'model'      => 'qwen3:14b',
 				'chat_title' => 'How can I help you?',
 			] )
 		);
