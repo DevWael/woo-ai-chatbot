@@ -1,6 +1,6 @@
 <?php
 
-declare(strict_types=1);
+declare( strict_types=1 );
 
 namespace WoocommerceAIChatbot;
 
@@ -25,9 +25,10 @@ class Core {
 
 	// initialize the plugin
 	public function init() {
-		$this->pluginSettings = new PluginSettings();
-		$this->ajaxHandler    = new Ajax_Chat_Handler();
-		$this->chatFrontend   = new ChatFrontend();
+		$this->pluginSettings     = new PluginSettings();
+		$this->ajaxHandler        = new Ajax_Chat_Handler();
+		$this->chatFrontend       = new ChatFrontend();
+		$this->productsIndexerCLI = new CLI\Products_Indexer_Command();
 	}
 
 	// load hooks
@@ -37,5 +38,6 @@ class Core {
 		}
 		$this->ajaxHandler->load_hooks();
 		$this->chatFrontend->load_hooks();
+		$this->productsIndexerCLI->load_hooks();
 	}
 }

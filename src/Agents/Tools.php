@@ -33,7 +33,7 @@ class Tools {
 
 		return Tool::make(
 			'search_woocommerce_products',
-			'Searches the WooCommerce product catalog. Use for product-related queries.',
+			'Searches the WooCommerce product catalog. Use for product-related queries. This function will return the found products in HTML format. Return the response as it is.',
 		)->addProperty(
 			new ToolProperty( 'query', 'string', 'The user’s search terms.', true )
 		)->addProperty(

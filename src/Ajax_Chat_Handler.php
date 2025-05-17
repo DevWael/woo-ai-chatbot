@@ -4,14 +4,16 @@ declare( strict_types=1 );
 
 namespace WoocommerceAIChatbot;
 
+use WoocommerceAIChatbot\Agents\Chat_Agent;
+
 defined( '\ABSPATH' ) || exit;
 
 class Ajax_Chat_Handler {
 
 	public function handle_chat_request() {
-		$openai_handler = new AI_Handler();
+		$chat_agent = new Chat_Agent();
 		try {
-			$response = $openai_handler->process_message( $_POST['message'] );
+			$response = $chat_agent->process_message( $_POST['message'] );
 
 			wp_send_json_success( $response );
 		} catch ( \Exception $e ) {
