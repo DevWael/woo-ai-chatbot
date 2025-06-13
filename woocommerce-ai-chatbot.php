@@ -1,9 +1,12 @@
 <?php
 /**
  * Plugin Name: WooCommerce AI Chatbot
- * Description: AI-powered chatbot for WooCommerce product search and cart management.
+ * Description: A powerful AI-powered assistant for WooCommerce stores that helps customers discover products, manage carts, and get e-commerce support through natural language interactions.
  * Version: 1.0
  * Author: Ahmad Wael
+ * Author URI: https://www.bbioon.com
+ * License: GPL2
+ * Plugin URI: https://github.com/DevWael/woo-ai-chatbot
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
