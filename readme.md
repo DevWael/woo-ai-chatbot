@@ -26,6 +26,7 @@ e-commerce support through natural language interactions.
 - Activate the plugin from the WordPress admin dashboard.
 - You can use https://inspector.dev/ to test and check how the ai behaves and tune it's performance.
 - Use `AIChatbot_INSPECTOR_API_KEY` constant in your `wp-config.php` to set the API key for Inspector.dev.
+- In WP-CLI use `wp wc-ai index-products` command to index products to be searchable for the AI assistant.
 
 ## Contributions
 We welcome contributions! Please follow these steps:
