@@ -45,7 +45,7 @@
                     $messages.find('.wc-ai-chatbot-typing').remove();
 
                     if (response.success) {
-                        addMessage('assistant', response.data);
+                        addMessage('assistant', response.data.html);
                     } else {
                         addMessage('assistant', '<p>Sorry, there was an error processing your request.</p>');
                     }

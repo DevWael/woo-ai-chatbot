@@ -8,8 +8,8 @@ defined( '\ABSPATH' ) || exit;
 
 class CartController {
 
-	public function add_to_cart( $product_id = 0, $product_name = '', $quantity = 1 ) {
-		if ( $product_name && empty( $product_id ) ) {
+	public function add_to_cart( $product_name = '', $quantity = 1 ) {
+		if ( $product_name ) {
 			$products = wc_get_products( [
 				'status' => 'publish',
 				'limit'  => 1,
@@ -20,7 +20,8 @@ class CartController {
 				$product_id = $products[0]->get_id();
 			} else {
 				return wp_json_encode( [
-					'success' => false,
+					'type'    => 'add_to_cart',
+					'results' => 'fail',
 					'message' => 'Product not found',
 				] );
 			}
@@ -30,7 +31,9 @@ class CartController {
 			WC()->cart->add_to_cart( $product_id, $quantity );
 
 			return wp_json_encode( [
-				'success'      => true,
+				'type'         => 'add_to_cart',
+				'results'      => 'success',
+				'product_id'   => $product_id,
 				'message'      => 'Product added to cart',
 				'cart_url'     => wc_get_cart_url(),
 				'checkout_url' => wc_get_checkout_url(),
@@ -38,7 +41,8 @@ class CartController {
 		}
 
 		return wp_json_encode( [
-			'success' => false,
+			'type'    => 'add_to_cart',
+			'results' => 'fail',
 			'message' => 'Missing product identifier',
 		] );
 	}
@@ -46,12 +50,18 @@ class CartController {
 	public function cart_products_count() {
 		$count = WC()->cart->get_cart_contents_count();
 
-		return wp_json_encode( $count );
+		return wp_json_encode( [
+			'type'    => 'cart_products_count',
+			'results' => $count,
+		] );
 	}
 
 	public function empty_cart() {
 		WC()->cart->empty_cart();
 
-		return 'done';
+		return wp_json_encode( array(
+			'type'    => 'clear_cart',
+			'results' => 'done',
+		) );
 	}
 }
