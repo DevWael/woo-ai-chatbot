@@ -16,14 +16,21 @@ class CreatePost {
 
 		if ( is_wp_error( $post_id ) ) {
 			return wp_json_encode( [
-				'success' => false,
+				'type'    => 'create_post',
+				'results' => 'fail',
 				'message' => 'Failed to create post',
 			] );
 		}
 
+		$post_content = get_post_field( 'post_content', $post_id );
+
 		return wp_json_encode( [
-			'success' => true,
+			'type'    => 'create_post',
+			'results' => 'success',
 			'post_id' => $post_id,
+			'title'   => get_the_title( $post_id ),
+			'content' => $post_content,
+			'url'     => get_permalink( $post_id ),
 			'message' => 'Post created successfully',
 		] );
 	}

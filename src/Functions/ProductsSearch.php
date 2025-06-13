@@ -10,7 +10,7 @@ use WoocommerceAIChatbot\Storage\Data_Storage;
 defined( '\ABSPATH' ) || exit;
 
 class ProductsSearch {
-	public function search_woocommerce_products( $query, $limit = 2 ) {
+	public function search_products( $query, $limit = 2 ) {
 		$products = $this->vector_search( $query, (int) $limit );
 
 		$results = [];
@@ -19,10 +19,13 @@ class ProductsSearch {
 			if ( ! $product ) {
 				continue;
 			}
-			$results[] = $this->html( $product );
+			$results[] = $product->get_id();
 		}
 
-		return '<div class="found-products">' . implode( '' , $results ) . '</div>';
+		return wp_json_encode(array(
+			'type'    => 'products_search',
+			'results' => $results,
+		));
 	}
 
 	public function vector_search( $query, int $limit = 5 ) {
@@ -33,26 +36,5 @@ class ProductsSearch {
 		$results = $storage->search( $embeddings );
 
 		return array_slice( array_column( $results, 'id' ), 0, $limit );
-	}
-
-	private function html( $product ) {
-        /* @var \WC_Product $product */
-		ob_start();
-		?>
-        <div class="product">
-            <a href="<?php
-			echo esc_url( $product->get_permalink() ); ?>">
-                <?php echo $product->get_image() ?>
-                <h2><?php
-					echo esc_html( $product->get_name() ); ?></h2>
-                <span><?php
-					echo $product->get_price_html(); ?></span>
-            </a>
-        </div>
-		<?php
-		$ss =  ob_get_clean();
-        file_put_contents(plugin_dir_path(__FILE__) . 'products.txt', $ss, FILE_APPEND);
-
-        return $ss;
 	}
 }
