@@ -4,6 +4,7 @@ declare( strict_types=1 );
 
 namespace WoocommerceAIChatbot\Agents;
 
+use NeuronAI\Tools\PropertyType;
 use NeuronAI\Tools\Tool;
 use NeuronAI\Tools\ToolProperty;
 use WoocommerceAIChatbot\Functions\CartController;
@@ -18,11 +19,11 @@ class Tools {
 
 		return Tool::make(
 			'create_post',
-			'Create a new post in the store. Use only when explicitly requested.',
+			'Creates a new post, story, or articles.'
 		)->addProperty(
-			new ToolProperty( 'post_name', 'string', 'The name of the post to be created.', true )
+			new ToolProperty( 'post_name', PropertyType::STRING, 'The title of the post.', true )
 		)->addProperty(
-			new ToolProperty( 'content', 'string', 'The content of the post.', true )
+			new ToolProperty( 'content', PropertyType::STRING, 'The body content of the post.', true )
 		)->setCallable(
 			array( $instance, 'create_post' )
 		);
@@ -32,14 +33,14 @@ class Tools {
 		$instance = new ProductsSearch();
 
 		return Tool::make(
-			'search_woocommerce_products',
-			'Searches the WooCommerce product catalog. Use for product-related queries. This function will return the found products in HTML format. Return the response as it is.',
+			'search_products',
+			'Searches the catalog for a single product term. – use only with one item per call.',
 		)->addProperty(
-			new ToolProperty( 'query', 'string', 'The user’s search terms.', true )
+			new ToolProperty( 'query', PropertyType::STRING, 'The user’s search terms.', true )
 		)->addProperty(
-			new ToolProperty( 'limit', 'integer', 'Maximum number of products to return.', false )
+			new ToolProperty( 'limit', PropertyType::INTEGER, 'Exact number of matches to return.' )
 		)->setCallable(
-			array( $instance, 'search_woocommerce_products' )
+			array( $instance, 'search_products' )
 		);
 	}
 
@@ -48,13 +49,11 @@ class Tools {
 
 		return Tool::make(
 			'add_to_cart',
-			'Adds a product to the cart. Use only when explicitly requested.',
+			'Adds a specified product to the user’s cart. Use only when the user explicitly requests to add a product.'
 		)->addProperty(
-			new ToolProperty( 'product_id', 'integer', 'The product ID.', false )
+			new ToolProperty( 'product_name', PropertyType::STRING, 'The exact name of the product for verification.', false )
 		)->addProperty(
-			new ToolProperty( 'product_name', 'string', 'The exact product name.', false )
-		)->addProperty(
-			new ToolProperty( 'quantity', 'integer', 'The quantity to add.', false )
+			new ToolProperty( 'quantity', PropertyType::INTEGER, 'The number of items to add (default: 1).', false )
 		)->setCallable(
 			array( $instance, 'add_to_cart' )
 		);
@@ -65,7 +64,7 @@ class Tools {
 
 		return Tool::make(
 			'cart_products_count',
-			'Retrieves the total number of items in the cart.',
+			'Get the total number of items currently in the user’s cart.'
 		)->setCallable(
 			array( $instance, 'cart_products_count' )
 		);
@@ -76,7 +75,7 @@ class Tools {
 
 		return Tool::make(
 			'empty_cart',
-			'Clears all items from the cart. Use only when explicitly requested.',
+			'Removes all items from the user’s cart. Use only when the USER explicitly request.'
 		)->setCallable(
 			array( $instance, 'empty_cart' )
 		);
