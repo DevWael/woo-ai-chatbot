@@ -8,8 +8,8 @@
         }
     ],
     "require": {
-        "inspector-apm/neuron-ai": "1.12.12",
-        "inspector-apm/inspector-php": "^3.12.3"
+        "inspector-apm/neuron-ai": "1.14.15",
+        "inspector-apm/inspector-php": "^3.15.3"
     },
     "require-dev": {
         "roave/security-advisories": "dev-latest"

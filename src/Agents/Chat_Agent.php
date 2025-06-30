@@ -19,6 +19,7 @@ use NeuronAI\Observability\Events\ToolCalled;
 use NeuronAI\Observability\Events\ToolCalling;
 use NeuronAI\Providers\Anthropic\Anthropic;
 use NeuronAI\Providers\Deepseek;
+use NeuronAI\Providers\Gemini\Gemini;
 use NeuronAI\Providers\Mistral;
 use NeuronAI\Providers\OpenAI\OpenAI;
 use NeuronAI\SystemPrompt;
@@ -73,9 +74,16 @@ class Chat_Agent extends Agent {
 
 		$provider_class = $this->providers_map[ $provider_key ];
 		if ( $provider_key === 'ollama' ) {
-			$provider = new $provider_class( $this->options['api_domain'], $this->options['model'], [ 'think' => false ] );
+			$provider = new $provider_class(
+				$this->options['api_domain'],
+				$this->options['model'],
+				[ 'enable_thinking' => false ]
+			);
 		} else {
-			$provider = new $provider_class( $this->options['api_key'], $this->options['model'], );
+			$provider = new $provider_class(
+				$this->options['api_key'],
+				$this->options['model'],
+			);
 		}
 
 		return $provider;
@@ -108,6 +116,7 @@ class Chat_Agent extends Agent {
 			'deepseek'    => Deepseek::class,
 			'together_ai' => TogetherAI::class,
 			'open_router' => OpenRouterAI::class,
+			'gemini'      => Gemini::class,
 		);
 	}
 

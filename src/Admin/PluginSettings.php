@@ -93,6 +93,7 @@ class PluginSettings {
 			'deepseek'    => 'Deepseek',
 			'together_ai' => 'TogetherAI',
 			'open_router' => 'OpenRouter',
+			'gemini'      => 'Gemini',
 		];
 
 		echo '<select name="wc_ai_chat_settings[provider]">';
